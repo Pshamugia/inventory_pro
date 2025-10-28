@@ -4,19 +4,22 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $u = User::firstOrCreate(
-            ['email' => 'admin@inventory.local'],
-            ['name' => 'Admin', 'password' => bcrypt('password')]
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('password'),
+            ]
         );
 
-        // If you've added HasRoles on the User model:
-        if (method_exists($u, 'assignRole')) {
-            $u->assignRole('Admin');
+        if (! $admin->hasRole('admin')) {
+            $admin->assignRole('admin');
         }
     }
 }

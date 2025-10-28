@@ -17,14 +17,23 @@ class ReportController extends Controller
         return view('reports.stock', compact('products'));
     }
 
-    public function low()
-    {
-        $products = Product::with(['category','unit'])
-            ->withSum('movements as soh','qty_change')
-            ->having('soh','<=',DB::raw('reorder_level'))
-            ->orderBy('name')->get();
-        return view('reports.low', compact('products'));
-    }
+   // app/Http/Controllers/ReportController.php
+public function low()
+{
+    $products = DB::table('products')
+        ->select('products.*')
+        ->selectSub(function ($q) {
+            $q->from('stock_movements')
+              ->selectRaw('SUM(qty_change)')
+              ->whereColumn('stock_movements.product_id', 'products.id');
+        }, 'soh')
+        ->whereRaw('(SELECT SUM(qty_change) FROM stock_movements WHERE stock_movements.product_id = products.id) <= products.reorder_level')
+        ->orderBy('name')
+        ->get();
+
+    return view('reports.low', compact('products'));
+}
+
 
     public function sales(Request $r)
     {

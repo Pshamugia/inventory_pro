@@ -13,7 +13,6 @@ class SaleItem extends Model
         'sale_id','product_id','warehouse_id',
         'qty','unit_price','line_total',
     ];
-    
 
     public function sale()
     {
