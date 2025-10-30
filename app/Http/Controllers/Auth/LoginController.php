@@ -20,5 +20,16 @@ return back()->withErrors(['email'=>'Invalid credentials']);
 }
 
 
+protected function authenticated($request, $user)
+{
+    if ($user->role === 'Cashier') {
+        return redirect()->route('pos');
+    }
+    return redirect()->route('dashboard');
+}
+
+
 public function logout(Request $r){ Auth::logout(); $r->session()->invalidate(); $r->session()->regenerateToken(); return redirect('/login'); }
 }
+
+

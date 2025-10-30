@@ -1,12 +1,10 @@
 <?php
 
 namespace App\Http;
-use Spatie\Permission\Middleware\RoleMiddleware;
-use Illuminate\Foundation\Http\Kernel as HttpKernel;
-use Spatie\Permission\Middleware\PermissionMiddleware;
 
-use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
- 
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
+
+
 
 
 class Kernel extends HttpKernel
@@ -42,7 +40,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             // Adjust rate limit as you like:
-            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];
@@ -62,9 +60,6 @@ class Kernel extends HttpKernel
         'throttle'         => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
-        // Spatie (keep these if you installed spatie/laravel-permission)
-       'role'               => RoleMiddleware::class,
-    'permission'         => PermissionMiddleware::class,
-    'roles_or_permissions' => RoleOrPermissionMiddleware::class,
+'role' => \App\Http\Middleware\RoleMiddleware::class,
     ];
 }

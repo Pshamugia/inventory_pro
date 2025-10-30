@@ -3,63 +3,71 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
-use App\Models\{Product, Category, Warehouse, Sale, SaleItem};
+use Carbon\Carbon;
+use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleItem;
+
 
 class DashboardController extends Controller
 {
-    // Remove the constructor; route middleware will protect it.
-
     public function index()
     {
-        $today   = Carbon::today();
-        $start7  = Carbon::today()->subDays(6);
-        $start30 = Carbon::today()->subDays(29);
+        $today      = Carbon::today();
+        $weekStart  = Carbon::now()->subDays(6)->startOfDay(); // last 7 days window
+        $lowThresh  = 5;
 
-        $counts = [
-            'products'   => Product::count(),
-            'categories' => Category::count(),
-            'warehouses' => Warehouse::count(),
-            'salesToday' => Sale::whereDate('sold_at', $today)->count(),
-        ];
+        // KPIs
+        $totalProducts = Product::count();
 
-        $todayKpi = Sale::whereDate('sold_at', $today)
-            ->selectRaw('COALESCE(SUM(total),0) as revenue, COUNT(*) as orders')
-            ->first();
-
-        $days = Sale::selectRaw('DATE(sold_at) as d, COALESCE(SUM(total),0) as revenue')
-            ->whereBetween('sold_at', [$start7, $today])
-            ->groupBy('d')->orderBy('d')
-            ->pluck('revenue', 'd');
-
-        $labels = []; $series = [];
-        for ($i=0; $i<7; $i++) {
-            $d = $start7->copy()->addDays($i)->toDateString();
-            $labels[] = $d;
-            $series[] = (float)($days[$d] ?? 0);
-        }
-
-        $lowStockCount = Product::where('track_stock', true)
-    ->withSum('movements as soh', 'qty_change')
-    ->get()
-    ->filter(fn ($p) => (int)($p->soh ?? 0) <= (int)$p->reorder_level)
+        // today revenue & orders (computed from sale_items to avoid "total" column mismatch)
+        $todayRevenue = (float) SaleItem::whereDate('created_at', $today)->sum('line_total');
+        $todayOrders  = Sale::whereDate('created_at', $today)->count();
+     $lowStockCnt = DB::table('products')
+    ->leftJoin('stock_movements as sm', 'sm.product_id', '=', 'products.id')
+    ->select('products.id')
+    ->selectRaw('COALESCE(SUM(sm.qty_change), 0) as soh')
+    ->groupBy('products.id')
+    ->having('soh', '<=', $lowThresh)
     ->count();
 
-        $stockValue = 0;
-        foreach (Product::withSum('movements as soh','qty_change')->get() as $p) {
-            $stockValue += max(0, (int)($p->soh ?? 0)) * (float)$p->cost_price;
-        }
+        $kpis = [
+            'todaySales' => $todayRevenue,   // ₾
+            'products'   => $totalProducts,
+            'lowStock'   => $lowStockCnt,
+        ];
 
-        $topProducts = SaleItem::selectRaw('product_id, SUM(qty) as qty')
-            ->whereHas('sale', fn($q)=>$q->whereBetween('sold_at',[$start30,$today]))
-            ->with('product:id,name,sku')
-            ->groupBy('product_id')->orderByDesc('qty')->limit(5)->get();
+        // Sales chart (last 7 days: labels & series)
+        $raw = SaleItem::selectRaw('DATE(created_at) as d, SUM(line_total) as amt')
+            ->where('created_at', '>=', $weekStart)
+            ->groupBy('d')
+            ->orderBy('d')
+            ->pluck('amt','d'); // ['2025-10-24' => 123.45, ...]
 
-        $recentSales = Sale::withCount('items')->latest()->limit(10)->get();
+        $period = collect(range(0, 6))->map(fn ($i) => Carbon::now()->subDays(6 - $i)->toDateString());
+        $labels = $period->map(fn($d) => Carbon::parse($d)->format('M d'))->values();
+        $series = $period->map(fn($d) => (float) ($raw[$d] ?? 0))->values();
 
-        return view('dashboard', compact(
-            'counts','todayKpi','labels','series',
-            'lowStockCount','stockValue','topProducts','recentSales'
+        // Recent sales (10) with computed total and user
+        $recent = Sale::with('user')->latest()->take(10)->get();
+        $recentSales = $recent->map(function ($s) {
+            $s->total = (float) $s->items()->sum('line_total');
+            return $s;
+        });
+
+        // Low stock list (top 10)
+     $lowProducts = DB::table('products')
+    ->leftJoin('stock_movements as sm', 'sm.product_id', '=', 'products.id')
+    ->select('products.id','products.sku','products.name')
+    ->selectRaw('COALESCE(SUM(sm.qty_change), 0) as quantity')
+    ->groupBy('products.id','products.sku','products.name')
+    ->having('quantity', '<=', $lowThresh)
+    ->orderBy('quantity')
+    ->limit(10)
+    ->get();
+
+        return view('dashboard.admin', compact(
+            'kpis','labels','series','recentSales','lowProducts'
         ));
     }
 }

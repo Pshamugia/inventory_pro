@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 abstract class Controller
 {
+
+    
     public function quickStore(\Illuminate\Http\Request $request)
 {
     $data = $request->validate(['name' => 'required|string|max:100']);

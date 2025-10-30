@@ -6,12 +6,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
+ use Spatie\Permission\Traits\HasRoles;
+
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;  use HasRoles;
+ 
+    use HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -46,4 +47,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+ public function hasRole($roles)
+{
+    $role = strtolower($this->role ?? '');
+    $roles = is_array($roles) ? $roles : explode('|', (string)$roles);
+    $roles = array_map(fn($r) => strtolower(trim($r)), $roles);
+    return in_array($role, $roles, true);
+}
+
+
 }

@@ -3,7 +3,10 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3>Products</h3>
+{{-- Add Product (hide from cashiers) --}}
+@unless(auth()->user()->hasRole(['cashier']))
   <a href="{{ route('products.create') }}" class="btn btn-success">Add Product</a>
+@endunless
 </div>
 
 @if(session('success'))
@@ -40,14 +43,15 @@
         <td>
           <a href="{{ route('products.edit', $p->id) }}" class="btn btn-sm btn-primary">Edit</a>
 
-          <form action="{{ route('products.destroy', $p->id) }}"
-                method="POST"
-                style="display:inline-block"
-                onsubmit="return confirm('Delete this product? This cannot be undone.');">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-          </form>
+      @unless(auth()->user()->hasRole(['cashier']))
+  {{-- show Edit/Delete buttons --}}
+  <a href="{{ route('products.edit', $p) }}" class="btn btn-sm btn-primary">Edit</a>
+  <form action="{{ route('products.destroy', $p) }}" method="POST" class="d-inline">
+    @csrf @method('DELETE')
+    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete?')">Delete</button>
+  </form>
+@endunless
+
         </td>
       </tr>
     @endforeach

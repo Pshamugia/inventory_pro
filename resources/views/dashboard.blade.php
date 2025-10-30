@@ -7,9 +7,9 @@
     @if (Route::has('products.index'))
       <a href="{{ route('products.index') }}" class="btn btn-outline-primary">Products</a>
     @endif
-    @if (Route::has('pos'))
+ 
       <a href="{{ route('pos') }}" class="btn btn-success">Open POS</a>
-    @endif
+ 
   </div>
 </div>
 

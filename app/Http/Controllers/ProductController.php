@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 
 class ProductController extends Controller
 {
+    
     public function index(){
         $products = Product::with(['category','unit'])->latest()->paginate(15);
         return view('products.index', compact('products'));
