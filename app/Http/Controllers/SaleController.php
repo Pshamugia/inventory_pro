@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Schema; // ← add at the top with the other uses
+use Illuminate\Support\Facades\Schema;  
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -64,80 +64,91 @@ class SaleController extends Controller
     }
 
     // --- Save sale (AJAX) ---
-    public function storeAjax(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'items.*.product_id' => 'required|integer|exists:products,id',
-            'items.*.qty'        => 'required|numeric|min:0.001',
-            'items.*.price'      => 'required|numeric|min:0',
-            'payment_method'     => 'required|string|max:50',
-            'cash_given'         => 'nullable|numeric|min:0',
-            'paid'               => 'nullable|numeric|min:0',
-        ]);
+   public function storeAjax(Request $request): JsonResponse
+{
+    $data = $request->validate([
+        'items'                => 'required|array|min:1',
+        'items.*.product_id'   => 'required|integer|exists:products,id',
+        'items.*.qty'          => 'required|numeric|min:0.001',
+        'items.*.price'        => 'required|numeric|min:0',
+        'payment_method'       => 'required|string|max:50',
+        'cash_given'           => 'nullable|numeric|min:0',
+    ]);
 
-        DB::beginTransaction();
+    DB::beginTransaction();
+    try {
+        $sale = new Sale();
+        if (Schema::hasColumn('sales', 'user_id'))         $sale->user_id = auth()->id();
+        if (Schema::hasColumn('sales', 'payment_method'))  $sale->payment_method = $data['payment_method'];
+        if (Schema::hasColumn('sales', 'cash_given'))      $sale->cash_given = (float) ($data['cash_given'] ?? 0);
+        if (Schema::hasColumn('sales', 'reference'))       $sale->reference = 'S-'.now()->format('YmdHis').'-'.random_int(100,999);
+        if (Schema::hasColumn('sales', 'sold_at'))         $sale->sold_at = now();
+        if (Schema::hasColumn('sales', 'change_due'))      $sale->change_due = 0;
+        $sale->total = 0;
+        $sale->save();
 
-        try {
-            $sale = new Sale();
-            $sale->user_id        = auth()->id(); // cashier id
-            $sale->payment_method = $data['payment_method'];
-            $sale->total          = 0;
-            $sale->cash_given     = $data['cash_given'] ?? 0;
-            $sale->change_due     = 0;
-            $sale->save();
+        $total = 0;
 
-            $total = 0;
+        foreach ($data['items'] as $row) {
+            $productId = (int) $row['product_id'];
+            $qty       = (float) $row['qty'];
+            $price     = (float) $row['price'];
 
-            foreach ($data['items'] as $row) {
-                $product = Product::find($row['product_id']);
+            // Compute current stock directly from stock_movements.qty_change
+            $soh = (int) DB::table('stock_movements')
+                ->where('product_id', $productId)
+                ->sum('qty_change');
 
-                // ✅ prevent negative stock
-                if ($product->stockOnHand() < $row['qty']) {
-                    throw new \Exception("Not enough stock for {$product->name}");
-                }
-
-                $lineTotal = $row['qty'] * $row['price'];
-                $total += $lineTotal;
-
-                SaleItem::create([
-                    'sale_id'     => $sale->id,
-                    'product_id'  => $row['product_id'],
-                    'qty'         => $row['qty'],
-                    'unit_price'  => $row['price'],
-                    'line_total'  => $lineTotal,
-                ]);
-
-                // record stock movement
-                StockMovement::create([
-                    'product_id' => $row['product_id'],
-                    'qty_change' => -$row['qty'],
-                    'reason'     => 'sale',
-                    'reference_type' => 'Sale',
-                    'reference_id' => $sale->id,
-                ]);
+            if ($soh < $qty) {
+                throw new \Exception('Not enough stock for '.Product::find($productId)->name);
             }
 
-            $sale->total = $total;
-            $sale->change_due = max(0, ($sale->cash_given - $total));
-            $sale->save();
+            $line = $qty * $price;
+            $total += $line;
 
-            DB::commit();
-
-            return response()->json([
-                'ok'             => true,
-                'sale_id'        => $sale->id,
-                'total'          => (float) $total,
-                'time'           => now()->format('Y-m-d H:i'),
-                'payment_method' => $sale->payment_method,
-                'cash_given'     => (float) ($sale->cash_given ?? 0),
-                'change'         => (float) ($sale->change_due ?? 0),
+            SaleItem::create([
+                'sale_id'    => $sale->id,
+                'product_id' => $productId,
+                'qty'        => $qty,
+                'unit_price' => $price,
+                'line_total' => $line,
             ]);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+
+            // consume stock
+            StockMovement::create([
+                'product_id'     => $productId,
+                'warehouse_id'   => 1,         // set your default warehouse id if you use it
+                'qty_change'     => -$qty,     // NEGATIVE on sale
+                'reason'         => 'sale',
+                'reference_type' => 'Sale',
+                'reference_id'   => $sale->id,
+            ]);
         }
+
+        $sale->total = $total;
+        if (Schema::hasColumn('sales','change_due')) {
+            $sale->change_due = max(0, ($sale->cash_given ?? 0) - $total);
+        }
+        $sale->save();
+
+        DB::commit();
+
+        return response()->json([
+            'ok'             => true,
+            'sale_id'        => $sale->id,
+            'total'          => (float) $total,
+            'time'           => now()->format('Y-m-d H:i'),
+            'payment_method' => $sale->payment_method,
+            'cash_given'     => (float) ($sale->cash_given ?? 0),
+            'change'         => (float) ($sale->change_due ?? 0),
+        ]);
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return response()->json([
+            'ok'    => false,
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 }

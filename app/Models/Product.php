@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -14,10 +15,13 @@ public function unit(){ return $this->belongsTo(Unit::class); }
 public function movements(){ return $this->hasMany(StockMovement::class); }
 
 
-public function stockOnHand(?int $warehouseId = null): int
-{
-$q = $this->movements();
-if ($warehouseId) $q->where('warehouse_id', $warehouseId);
-return (int) $q->sum('qty_change');
-}
+    public function stockOnHand(?int $warehouseId = null): int
+    {
+        $q = DB::table('stock_movements')->where('product_id', $this->id);
+        if (!is_null($warehouseId)) {
+            $q->where('warehouse_id', $warehouseId);
+        }
+        return (int) $q->sum('qty_change'); // <-- ALWAYS sums qty_change
+    }
+
 }
