@@ -123,4 +123,11 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+
+    'company' => [
+    'name' => env('COMPANY_NAME', 'AproPOS'),
+    'tax'  => env('COMPANY_TAX',  '62006026170'),
+    'addr' => env('COMPANY_ADDR', 'Tbilisi, Georgia'),
+],
+
 ];

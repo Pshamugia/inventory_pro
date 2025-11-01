@@ -134,21 +134,43 @@
 
 {{-- Simple receipt template (printed via a new window) --}}
 <template id="receiptTpl">
-    <div style="font-family: ui-sans-serif, system-ui; width: 280px;">
-        <h3 style="text-align:center; margin:0 0 8px 0;">Inventory Pro</h3>
-        <div style="text-align:center; font-size:12px; margin-bottom:8px;">
-            {{ now()->format('Y-m-d H:i') }} • Cashier: {{ auth()->user()->name }}
-        </div>
-        <table style="width:100%; font-size:12px;">
-            <tbody data-lines></tbody>
-        </table>
-        <hr>
-        <div style="display:flex; justify-content:space-between; font-weight:bold;">
-            <span>Total</span><span data-total>₾ 0.00</span>
-        </div>
-        <div style="margin-top:8px; font-size:12px; text-align:center;">Thanks!</div>
+  <div style="font-family: ui-sans-serif,system-ui,Arial; width: 220px; font-size:12px;">
+    <div style="text-align:center;">
+      <img src="{{ asset('logo.png') }}" style="height:40px;margin:6px auto;display:block" onerror="this.remove()">
+      <div style="font-weight:700">{{ config('app.company.name') }}</div>
+      <div>Tax: {{ config('app.company.tax') }}</div>
+      <div style="margin-bottom:6px">{{ config('app.company.addr') }}</div>
+      <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0">
+        {{ now()->format('Y-m-d H:i') }} • Cashier: {{ auth()->user()->name }}
+      </div>
     </div>
+
+    <table style="width:100%">
+      <tbody data-lines></tbody>
+    </table>
+
+    <div style="border-top:1px dashed #000;margin-top:6px;padding-top:6px">
+      <div style="display:flex;justify-content:space-between">
+        <span>Total</span><strong data-total>₾ 0.00</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span>Paid</span><span data-paid>₾ 0.00</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span>Change</span><span data-change>₾ 0.00</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span>Method</span><span data-method>—</span>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:10px">
+      <div>Thanks for your purchase! 💚</div>
+      <div style="font-size:11px;margin-top:6px">Powered by Inventory-Pro</div>
+    </div>
+  </div>
 </template>
+
 
 @push('scripts')
 <script>
@@ -364,8 +386,11 @@
 
     // SUCCESS branch
     try {
-      printReceipt(cart, json.total, json.payment_method, json.cash_given, json.change);
-
+printReceipt(cart, json.total, {
+  cash_given: json.cash_given,
+  change:     json.change,
+  payment_method: json.payment_method
+});
       cart = [];
       selectedIndex = -1;
       renderCart();
@@ -387,46 +412,43 @@
   payBtn.addEventListener('click', submitSale);
 
   // --- print ---
-  function printReceipt(items, total, method, given, change){
-    const tpl = document.getElementById('receiptTpl').content.cloneNode(true);
-    const linesEl = tpl.querySelector('[data-lines]');
-    const totalEl = tpl.querySelector('[data-total]');
+  function printReceipt(items, total, meta = {}) {
+  const tpl = document.getElementById('receiptTpl').content.cloneNode(true);
+  const linesEl = tpl.querySelector('[data-lines]');
+  const totalEl = tpl.querySelector('[data-total]');
+  const paidEl  = tpl.querySelector('[data-paid]');
+  const chgEl   = tpl.querySelector('[data-change]');
+  const mthEl   = tpl.querySelector('[data-method]');
 
-    items.forEach(it=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td>' + escapeHtml(it.name) + ' × ' + it.qty + '</td>' +
-        '<td style="text-align:right;">' + (Number(it.qty) * Number(it.price)).toFixed(2) + '</td>';
-      linesEl.appendChild(tr);
-    });
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding-right:6px;">
+        <div><strong>${escapeHtml(it.name)}</strong></div>
+        <div style="font-size:11px;color:#555">${escapeHtml(it.sku || '')}</div>
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        ${Number(it.qty).toFixed(2)} × ${Number(it.price).toFixed(2)} =
+        <strong>${(it.qty * it.price).toFixed(2)}</strong>
+      </td>
+    `;
+    linesEl.appendChild(tr);
+  });
 
-    // footer lines
-    const trPay = document.createElement('tr');
-    trPay.innerHTML = '<td style="padding-top:6px;">Method</td><td style="text-align:right;padding-top:6px;">' + String(method || 'cash').toUpperCase() + '</td>';
-    linesEl.appendChild(trPay);
+  totalEl.textContent = '₾ ' + Number(total).toFixed(2);
+  paidEl.textContent  = '₾ ' + Number(meta.cash_given || 0).toFixed(2);
+  chgEl.textContent   = '₾ ' + Number(meta.change || 0).toFixed(2);
+  mthEl.textContent   = meta.payment_method || '-';
 
-    if (typeof given !== 'undefined') {
-      const trGiven = document.createElement('tr');
-      trGiven.innerHTML = '<td>Cash given</td><td style="text-align:right;">' + Number(given||0).toFixed(2) + '</td>';
-      linesEl.appendChild(trGiven);
-    }
-    if (typeof change !== 'undefined') {
-      const trChange = document.createElement('tr');
-      trChange.innerHTML = '<td>Change</td><td style="text-align:right;">' + Number(change||0).toFixed(2) + '</td>';
-      linesEl.appendChild(trChange);
-    }
-
-    totalEl.textContent = '₾ ' + Number(total).toFixed(2);
-
-    const w = window.open('', '_blank', 'width=320,height=600');
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title></head><body>');
-    w.document.body.appendChild(tpl);
-    w.document.write('</body></html>');
-    w.document.close();
-    w.focus();
-    w.print();
-    w.close();
-  }
+  const w = window.open('', '_blank', 'width=260,height=700');
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title></head><body>');
+  w.document.body.appendChild(tpl);
+  w.document.write('</body></html>');
+  w.document.close();
+  w.focus();
+  w.print();
+  w.close();
+}
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));

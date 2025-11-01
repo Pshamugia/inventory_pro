@@ -12,6 +12,7 @@
         "php": "^8.2",
         "laravel/framework": "^11.0",
         "laravel/tinker": "^2.10.1",
+        "mike42/escpos-php": "^4.0",
         "spatie/laravel-permission": "6.22",
         "symfony/polyfill-php84": "^1.30"
     },

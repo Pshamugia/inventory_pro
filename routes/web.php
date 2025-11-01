@@ -57,3 +57,18 @@ Route::middleware(['auth','role:Admin|Manager|Cashier'])->group(function () {
     Route::get('/pos/search',     [SaleController::class, 'searchProducts'])->name('pos.search'); // AJAX search
     Route::post('/pos/sale',      [SaleController::class, 'storeAjax'])->name('pos.sale');  // AJAX save sale
 });
+
+Route::post('/pos/print', [\App\Http\Controllers\ReceiptPrinterController::class, 'printAndOpen'])
+    ->middleware('auth')
+    ->name('pos.print');
+
+    Route::get('/reports/today', [ReportController::class, 'todaySummary'])
+  ->middleware('auth')
+  ->name('reports.today');
+
+
+  Route::get('/reports/export/today', [ReportController::class, 'exportTodayCsv'])
+  ->middleware('auth')
+  ->name('reports.export.today');
+
+
