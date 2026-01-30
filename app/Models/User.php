@@ -48,13 +48,8 @@ class User extends Authenticatable
         ];
     }
 
- public function hasRole($roles)
-{
-    $role = strtolower($this->role ?? '');
-    $roles = is_array($roles) ? $roles : explode('|', (string)$roles);
-    $roles = array_map(fn($r) => strtolower(trim($r)), $roles);
-    return in_array($role, $roles, true);
-}
+ 
+
 
 
 }

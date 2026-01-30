@@ -22,26 +22,18 @@
 
 <body>
   @php
-  $u = Auth::user(); // current user or null
-  $role = $u->role ?? null; // 'Admin' | 'Manager' | 'Cashier' | null
-  $isAdmin = ($role === 'Admin');
-  $isManager = ($role === 'Manager');
-  $isCashier = ($role === 'Cashier');
-  @endphp
-
-  @php
   use Illuminate\Support\Facades\Auth;
 
   $u = Auth::user();
-  $role = strtolower((string)($u->role ?? ''));
-  // normalize legacy names if needed
-  $map = ['owner' => 'admin', 'superadmin' => 'admin'];
-  $role = $map[$role] ?? $role;
 
-  $isAdmin = $u?->hasRole(['admin']) ?? false;
-  $isManager = $u?->hasRole(['manager']) ?? false;
-  $isCashier = $u?->hasRole(['cashier']) ?? false;
+  $isAdmin = $u && $u->hasRole('Admin');
+  $isManager = $u && $u->hasRole('Manager');
+  $isCashier = $u && $u->hasRole('Cashier');
   @endphp
+
+
+
+
 
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
@@ -84,6 +76,8 @@
           </li>
           @endif
 
+         
+
           {{-- Reports (Admin + Manager) --}}
           @if(($isAdmin || $isManager) && Route::has('reports.sales'))
           <li class="nav-item dropdown">
@@ -124,9 +118,16 @@
           {{-- User dropdown --}}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-              {{ $u->name ?? 'User' }} <small class="text-muted">({{ ucfirst($role ?: '—') }})</small>
+              {{ $u->name ?? 'User' }}
+              <small class="text-muted">
+                ({{ $u?->getRoleNames()->first() ?? '—' }})
+              </small>
+
             </a>
+
+            
             <ul class="dropdown-menu dropdown-menu-end">
+              
               {{-- Optional: add a profile/settings route later --}}
               @if($isAdmin && Route::has('users.index'))
               <li><a class="dropdown-item" href="{{ route('users.index') }}">Manage Users</a></li>
@@ -161,6 +162,7 @@
 
 
   {{-- Scripts --}}
+ 
   <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ asset('vendor/datatables/datatables.min.js') }}"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

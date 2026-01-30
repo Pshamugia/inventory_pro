@@ -59,6 +59,18 @@
         <input type="number" step="0.01" name="sale_price" class="form-control" value="{{ old('sale_price',$product->sale_price) }}" required>
       </div>
 
+
+
+      <div class="col-md-3">
+    <label class="form-label">Add Stock (+)</label>
+    <input name="add_stock"
+           type="number"
+           class="form-control"
+           value="0"
+           min="0">
+</div>
+
+
       <div class="col-md-4">
         <label class="form-label">Reorder Level</label>
         <input type="number" name="reorder_level" class="form-control" value="{{ old('reorder_level',$product->reorder_level) }}">

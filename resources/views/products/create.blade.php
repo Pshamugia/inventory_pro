@@ -83,6 +83,18 @@
             @error('sale_price')<div class="text-danger small">{{ $message }}</div>@enderror
         </div>
 
+
+     <div class="col-md-3">
+    <label class="form-label">Initial Stock</label>
+    <input name="initial_stock"
+           type="number"
+           class="form-control"
+           value="{{ old('initial_stock', 0) }}"
+           min="0">
+</div>
+
+
+
         <div class="col-md-3">
             <label class="form-label">Reorder Level</label>
             <input name="reorder_level" type="number" class="form-control"

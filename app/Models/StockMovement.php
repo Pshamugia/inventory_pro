@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class StockMovement extends Model
 {
-protected $fillable = ['product_id','warehouse_id','qty_change','reason'];
+protected $fillable = ['product_id',
+    'warehouse_id',
+    'qty_change',
+    'reason',
+    'reference_type',
+    'reference_id'];
 
 
 public function product(){ return $this->belongsTo(Product::class); }
